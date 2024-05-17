@@ -1,0 +1,29 @@
+[package]
+name = "redactor"
+description = "Censor sensible information from your logs or files like a true comrade!"
+version = "0.1.0"
+edition = "2021"
+authors = ["Cyrbil <1126098+cyrbil@users.noreply.github.com>"]
+repository = "https://github.com/cyrbil/redactor"
+keywords = ["parser", "logs", "redactor", "cli", "lib"]
+readme = "README.md"
+license-file = "LICENSE.txt"
+
+[[bin]]
+name = "redactor"
+path = "src/main.rs"
+
+[lib]
+name = "libredactor"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "*", features = ["derive", "wrap_help"] }
+
+[profile.release]
+codegen-units = 1
+debug = "none"
+incremental = true
+lto = "fat"
+opt-level = 3
+strip = "debuginfo"

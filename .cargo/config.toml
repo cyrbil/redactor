@@ -1,0 +1,7 @@
+# On Windows MSVC, statically link the C runtime so that the resulting EXE does not depend on the vcruntime DLL.
+[target.'cfg(all(target_os = "windows"))']
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# Do the same for MUSL targets.
+[target.'cfg(all(target_os = "linux", target_env = "musl", not(target_vendor = "alpine")))']
+rustflags = ["-C", "target-feature=+crt-static", "-C", "link-self-contained=yes"]

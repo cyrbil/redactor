@@ -1,0 +1,78 @@
+---
+name: Cross-compile
+on: [push, pull_request]
+permissions: read-all
+
+env:
+  PROJECT_NAME: redactor
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      matrix:
+        job:
+          - { os: ubuntu-latest  , target: arm-unknown-linux-gnueabihf , use-cross: true }
+          - { os: ubuntu-latest  , target: aarch64-unknown-linux-gnu   , use-cross: true }
+          - { os: ubuntu-latest  , target: aarch64-unknown-linux-musl  , use-cross: true }
+          - { os: ubuntu-latest  , target: i686-unknown-linux-gnu      , use-cross: true }
+          - { os: ubuntu-latest  , target: i686-unknown-linux-musl     , use-cross: true }
+          - { os: ubuntu-latest  , target: i586-unknown-linux-gnu      , use-cross: true }
+          - { os: ubuntu-latest  , target: i586-unknown-linux-musl     , use-cross: true }
+          - { os: ubuntu-latest  , target: x86_64-unknown-linux-gnu    , use-cross: true }
+          - { os: ubuntu-latest  , target: x86_64-unknown-linux-musl   , use-cross: true }
+          - { os: macos-latest   , target: x86_64-apple-darwin }
+          - { os: macos-latest   , target: aarch64-apple-darwin }
+          - { os: windows-latest , target: i686-pc-windows-gnu }
+          - { os: windows-latest , target: i686-pc-windows-msvc }
+          - { os: windows-latest , target: x86_64-pc-windows-gnu }
+          - { os: windows-latest , target: x86_64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install any prerequisites
+        shell: bash
+        run: |
+          case ${{ matrix.job.target }} in
+            arm-*-linux-*hf) sudo apt-get -y update ; sudo apt-get -y install binutils-arm-linux-gnueabihf ;;
+            aarch64-*-linux-*) sudo apt-get -y update ; sudo apt-get -y install binutils-aarch64-linux-gnu ;;
+          esac
+
+      - name: Initialize workflow variables
+        id: vars
+        shell: bash
+        run: |
+          # toolchain
+          TOOLCHAIN="stable"
+          # * specify alternate TOOLCHAIN for *-pc-windows-gnu targets; gnu targets on Windows are broken for the standard *-pc-windows-msvc toolchain (refs: <https://github.com/rust-lang/rust/issues/47048>, <https://github.com/rust-lang/rust/issues/53454>, <https://github.com/rust-lang/cargo/issues/6754>)
+          case ${{ matrix.job.target }} in *-pc-windows-gnu) TOOLCHAIN="stable-${{ matrix.job.target }}" ;; esac;
+          echo "TOOLCHAIN=${TOOLCHAIN}" | tee -a "$GITHUB_OUTPUT"
+          
+          # determine suffix
+          BIN_suffix="" ; case ${{ matrix.job.target }} in *-pc-windows-*) BIN_suffix=".exe" ;; esac;
+          echo "BIN_suffix=${BIN_suffix}" | tee -a "$GITHUB_OUTPUT"
+          
+          # * CARGO_USE_CROSS (truthy)
+          CARGO_USE_CROSS='true' ; case '${{ matrix.job.use-cross }}' in ''|0|f|false|n|no) unset CARGO_USE_CROSS ;; esac;
+          echo "CARGO_USE_CROSS=${CARGO_USE_CROSS}" | tee -a "$GITHUB_OUTPUT"
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ steps.vars.outputs.TOOLCHAIN }}
+          target: ${{ matrix.job.target }}
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ steps.vars.outputs.CARGO_USE_CROSS }}
+          command: build
+          args: --release --target=${{ matrix.job.target }} --locked
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: "${{ env.PROJECT_NAME }}.${{ matrix.job.target }}${{ steps.vars.outputs.BIN_suffix }}"
+          path: "target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}${{ steps.vars.outputs.BIN_suffix }}"
+          compression-level: 9

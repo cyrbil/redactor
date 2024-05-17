@@ -1,0 +1,23 @@
+# Ignore everything
+*
+
+# But not these files...
+!.cargo/
+!.cargo/**
+!.docs/
+!.docs/**
+!.github/
+!.github/**
+!src/
+!src/**
+!tests/
+!tests/**
+!**/.gitignore
+!**/Cargo.lock
+!**/Cargo.toml
+!**/LICENSE.txt
+!**/README.md
+!**/rust-toolchain.toml
+
+# Always ignore these
+**/*.log
